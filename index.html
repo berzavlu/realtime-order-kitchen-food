@@ -1,0 +1,164 @@
+<!DOCTYPE html lang="es">
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta name="robots" content="noindex, nofollow">
+	<title>firebase</title>
+	<link href="https://fonts.googleapis.com/css?family=Lato:400,700,900,300" rel='stylesheet' type='text/css'>
+	<link rel="stylesheet" href="css/bootstrap.min.css">
+	<link rel="stylesheet" href="css/jkanban.min.css">
+	<link rel="stylesheet" href="css/custom.css">
+</head>
+<body>
+	<div class="wrapper">
+		<div class="wrapper__kanban">
+			<div id="kanban"></div>
+		</div>
+	</div>
+	<!-- Librerias necesarias -->
+  <script src="js/jquery.min.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <script src="js/jkanban.min.js"></script>
+  <!-- Insert these scripts at the bottom of the HTML, but before you use any Firebase services -->
+  <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+  <script src="https://www.gstatic.com/firebasejs/5.10.1/firebase-app.js"></script>
+  <!-- Add Firebase products that you want to use -->
+	<script src="https://www.gstatic.com/firebasejs/5.10.1/firebase-database.js"></script>
+	<!-- Configuración de Firebase -->
+	<script>
+		const firebaseConfig = {
+			apiKey: "xxxxxxx",
+			authDomain: "xxxxxxx",
+			databaseURL: "xxxxxxx",
+			projectId: "xxxxxxx",
+			storageBucket: "xxxxxxx",
+			messagingSenderId: "xxxxxxx",
+			appId: "xxxxxxx"
+		}
+		firebase.initializeApp(firebaseConfig)
+	</script>
+	<!-- Configuración kanban -->
+	<script type="text/javascript">
+		const defaultBoards = [
+			{
+				'id' : '_todo',
+				'title'  : 'Pedidos',
+				'class' : 'info',
+				"dragTo": ['_working'],
+				'item'  : []
+			}, {
+				'id' : '_working',
+				'title'  : 'Preparando',
+				'class' : 'warning',
+				"dragTo": ['_done'],
+				'item'  : []
+			}, {
+				'id' : '_done',
+				'title'  : 'Entregado',
+				'class' : 'success',
+				"dragTo": [],
+				'item'  : []
+			}
+		]
+    var kanban3 = new jKanban({
+			element : '#kanban',
+			gutter  : '10px',
+			widthBoard : "400px",
+     	dragItems: true,
+     	dragBoards: false,
+     	buttonContent: '+',
+			boards: defaultBoards,
+			click : function(el){
+				alert(el.innerHTML);
+			},
+			dragendEl: function (el) {
+				const idElm = el.children[0].id
+				var idNewBoard = kanban3.getParentBoardID(idElm)
+				let estadoPedido = '1'
+				switch (idNewBoard) {
+					case '_todo': estadoPedido = '1'
+						break
+					case '_working': estadoPedido = '2'
+						break
+					case '_done': estadoPedido = '3'
+						break
+					default: estadoPedido = '1'
+						break
+				}
+				updatePedido(idElm, estadoPedido)
+			}
+    })
+	</script>
+
+	<script type="text/javascript">
+		let loadedApp = false
+		const audio = new Audio('bell.mp3')
+		// Inicializo el servicio
+		const database = firebase.database()
+		// referencio alguna bd específica
+		let dataRef = database.ref()
+
+		// pinto lo que trae el api
+		function drawKanban(obj) {
+			for (const prop in obj) {
+				let htmlCard = `<div class="contentCard" id=${prop}>`
+					htmlCard += '<div class="contentCard__col contentCard__col--img">'
+					htmlCard += '<img src="https://rosas-ami.com/admin/files/products/ee51f1f38490f873bda03ed741f05895_thumb.jpg" />'
+					htmlCard += '</div>'
+					htmlCard += '<div class="contentCard__col contentCard__col--grow">'
+						htmlCard += `<div>Pedido: ${obj[prop].adicionales}</div>`
+						htmlCard += `<div>Adicionales: Sin adicionales</div>`
+						htmlCard += '<div>Nro Mesa: 2</div>'
+						htmlCard += '<div>Hora Pedido: 4:30pm</div>'
+					htmlCard += '</div>'
+				htmlCard += '</div>'
+				switch (obj[prop].estado) {
+					case "1": kanban3.addElement('_todo',{ 'title': htmlCard, id: prop })
+						break
+					case "2": kanban3.addElement('_working',{ 'title': htmlCard, id: prop })
+						break
+					case "3": kanban3.addElement('_done',{ 'title': htmlCard, id: prop })
+						break
+					default:
+						alert('Error')
+					break
+				}
+			}
+		}
+
+		// leo una sola vez la bd
+		dataRef.once('value', (snapshot) => {
+			// drawKanban(snapshot.val())
+		})
+
+		function updatePedido(idChild, idEstado) {
+			dataRef
+				.child(idChild) // id
+				.update({'estado': idEstado}) // nuevo estado
+				.then(() => {
+					console.log('updated succeeded.')
+				})
+				.catch((error) => {
+					console.log('updated failed: ' + error.message)
+				})
+		}
+		// leo en tiempo real todas las actualizaciones
+		dataRef.on('value', (snapshot) => {
+			const someProcedure = async obj => {
+				for (const prop in snapshot.val()) {
+					kanban3.removeElement(prop)
+				}
+				return 'done'
+			}
+			someProcedure(snapshot.val())
+				.then(() => {
+					if (loadedApp) {
+						audio.play()
+					}
+					drawKanban(snapshot.val())
+					loadedApp = true
+				})
+		})
+  </script>
+<body>
+</html>
